@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Timer</title>
+  <meta name = "viewport" content="width = device-width, initial-scale = 1.0">
+</head>
+<body>
+
+  <style>
+    .timer.container{
+
+    }
+
+    .timer.routine,
+    .timer.fall{
+        font-size: 0;
+    }
+
+    .timer.routine > *,
+    .timer.fall > *{
+      display: inline-block;
+      font-size: 2rem;
+    }
+
+    input.timer{
+      font-size: inherit;
+      text-align: center;
+      width: 1.5em;
+      border: 0;
+      outline: 0;
+      padding: 0;
+      margin: 0;
+    }
+
+    p.timer {
+      margin: 0;
+      padding: 0;
+    }
+
+    p.timer.label {
+      display: block;
+    }
+
+    input{
+      display: inline;
+    }
+  </style>
+
+  <div class="timer container">
+    <div class="timer routine">
+      <p class="timer label">Routine: </p>
+      <input class="timer minutes" type="text" value="00" pattern="\d{0,2}"/>
+      <p class="timer">:</p>
+      <input class="timer seconds" type="text" value="00" pattern="[0-5]{0,1}\d{0,1}"/>
+      <p class="timer">:</p>
+      <input class="timer secondsPercent" type="text" value="00" pattern="\d{0,2}"/>
+    </div>
+    <div class="timer fall">
+      <p class="timer label">Fall: </p>
+      <input class="timer minutes" type="text" value="00" pattern="\d{0,2}"/>
+      <p class="timer">:</p>
+      <input class="timer seconds" type="text" value="00" pattern="[0-5]{0,1}\d{0,1}"/>
+      <p class="timer">:</p>
+      <input class="timer secondsPercent" type="text" value="00" pattern="\d{0,2}"/>
+    </div>
+    <button class="timer start" type="button">Start</button>
+    <button class="timer stop" type="button">Stop</button>
+    <button class="timer reset" type="button">Reset</button>
+    <button class="timer fallResume" type="button">Fall</button>
+    <audio class="ding" src="ding.mp3" style="display:none"></audio>
+  </div>
+
+<script>
+  (function() {
+    let timerRoutine = null;
+    let timerFall = null;
+    let audioDing = document.querySelector('audio.ding');
+    'use strict'
+    /* Change unpdate intervall */
+    let updateIntervall = 29; // [mS]
+    let timeDingSound = 10; // [S]
+
+    /* Don't change anything below, except you know what you are doing */
+    let elemBtnStart, elemBtnStop, elemBtnReset, elemBtnFall;
+    elemBtnStart = elemBtnStop = elemBtnReset = elemBtnFall = null;
+
+    function Timer(elemTimer) {
+      let time = (function() { // time calculations
+        let minInitial = 0;
+        let secInitial = 0;
+        let secPctInitial = 0;
+        let timeEnd = 0; // Actualized when run() [mS]
+        let timeRemaining = 0; // Actualized when initialize() or pause() [mS]
+        return {
+          get minRemainingCalc() { // String 2 digits
+            return ('00' + Math.floor(Math.abs(timeRemaining) / (1000*60))).slice(-2);
+          },
+          get secRemainingCalc() { // String 2 digits
+            return ('00' + Math.floor(Math.abs(timeRemaining) % (1000*60) / 1000)).slice(-2);
+          },
+          get secPctRemainingCalc() { // String 2 digits
+            return ('00' + String(Math.abs(timeRemaining) % 1000).slice(0, 2)).slice(-2);
+          },
+          get minInitial() { // String 2 digits
+            return ('00' + minInitial).slice(-2);
+          },
+          get secInitial() { // String 2 digits
+            return ('00' + secInitial).slice(-2);
+          },
+          get secPctInitial() { // String 2 digits
+            return ('00' + secPctInitial).slice(-2);
+          },
+          initialize: function(min = minInitial, sec = secInitial, secPct = secPctInitial) { // Use parameter when new initial values are used. For reset omit
+            minInitial = min;
+            secInitial = sec;
+            secPctInitial = secPct;
+            timeRemaining = (min * 60 + sec) * 1000 + secPct;
+          },
+          run: function() { // Begin to count
+            timeEnd = timeRemaining + Date.now();
+          },
+          update: function() { // Subtract the time passed by till run() was called
+            timeRemaining = timeEnd - Date.now();
+          },
+          isOvertime: function () {
+            if (timeRemaining >= 0) {
+              return false;
+            }
+            else {
+              return true;
+            }
+          }
+        };
+      })();
+
+      // DOM Elements
+      let elemInputMin = elemTimer.querySelector('input.minutes');
+      let elemInputSec = elemTimer.querySelector('input.seconds');
+      let elemInputSecPct = elemTimer.querySelector('input.secondsPercent');
+
+      // Validity checking and Initialization when user has entered values
+      [elemInputMin, elemInputSec, elemInputSecPct].forEach(elemInput => {
+        elemInput.addEventListener('blur', (() => {
+        let lastValidInput = '00'; // Initial Value
+        return evt => {
+          if (!elemInput.readOnly && elemInput.checkValidity()) {
+            time.initialize(Number(elemInputMin.value), Number(elemInputSec.value), Number(elemInputSecPct.value));
+            lastValidInput = evt.target.value;
+          }
+          else if (!elemInput.checkValidity()) {
+            evt.target.value = lastValidInput;
+          }
+          evt.target.value = ('00' + evt.target.value).slice(-2); // If only one digit
+        }
+        audioDing.pause(); // simulate user interaction for the audio
+      })());
+      });
+
+      this.intervalRun = null;
+      this.run = function() { // Start to count
+        time.run();
+        let didDing1Happend = false;
+        let didDing2Happend = false;
+
+        if (Number(time.minRemainingCalc) === 0 && Number(time.secRemainingCalc) < timeDingSound) {
+          didDing1Happend = true;
+        }
+
+        this.intervalRun = setInterval(() => {
+          time.update();
+          elemInputMin.value = time.minRemainingCalc;
+          elemInputSec.value = time.secRemainingCalc;
+          elemInputSecPct.value = time.secPctRemainingCalc;
+
+          [elemInputMin, elemInputSec, elemInputSecPct].forEach(elemInput => {
+            elemInput.style.color = (time.isOvertime() ? 'red' : 'black');
+          })
+
+          if (Number(time.minRemainingCalc) <= 0) {
+            if (!didDing1Happend && (Number(time.secRemainingCalc) < timeDingSound)) {
+              didDing1Happend = true;
+              audioDing.play();
+            }
+            if (!didDing2Happend && time.isOvertime()) {
+              didDing2Happend = true;
+              audioDing.play();
+            }
+          }
+        }, updateIntervall);
+      }
+
+      this.stop = function() { // Stops intervall
+        clearInterval(this.intervalRun);
+        this.intervalRun = null;
+      }
+
+      this.reset = function() {
+        this.stop();
+        time.initialize();
+        elemInputMin.value = time.minInitial;
+        elemInputSec.value = time.secInitial;
+        elemInputSecPct.value = time.secPctInitial;
+      }
+
+      this.blockUserInput = function(isBlocked = true) {
+        elemInputMin.readOnly = elemInputSec.readOnly = elemInputSecPct.readOnly = isBlocked;
+      }
+    }
+
+    timerRoutine = new Timer(document.querySelector('.timer.routine'));
+    timerFall = new Timer(document.querySelector('.timer.fall'));
+
+    (elemBtnStart = document.querySelector('button.start')).addEventListener('click', () => {
+      timerRoutine.run();
+
+      // Stop and Fall active
+      elemBtnStart.disabled = elemBtnReset.disabled = true;
+      elemBtnStop.disabled = elemBtnFall.disabled = false;
+
+      // Block user input
+      timerRoutine.blockUserInput(true);
+      timerFall.blockUserInput(true);
+    });
+
+    (elemBtnFall = document.querySelector('button.fallResume')).addEventListener('click', () => {
+      if (timerRoutine.intervalRun) {
+        timerRoutine.stop();
+        timerFall.run();
+
+        // Fall active
+        elemBtnStart.disabled = elemBtnStop.disabled = elemBtnReset.disabled = true;
+        elemBtnFall.disabled = false;
+      }
+      else {
+        timerFall.stop();
+
+        // Start & Reset active
+        elemBtnStop.disabled = elemBtnFall.disabled = true;
+        elemBtnStart.disabled = elemBtnReset.disabled = false;
+      }
+    });
+
+    (elemBtnStop = document.querySelector('button.stop')).addEventListener('click', () => {
+      timerRoutine.stop();
+
+      // Start and Reset active
+      elemBtnStop.disabled = elemBtnFall.disabled = true;
+      elemBtnStart.disabled = elemBtnReset.disabled = false;
+    });
+
+    (elemBtnReset = document.querySelector('button.reset')).addEventListener('click', () => {
+      timerRoutine.reset();
+      timerFall.reset();
+
+      activeTimer = timerRoutine; // Default
+
+      // start active
+      elemBtnReset.disabled = elemBtnFall.disabled = elemBtnStop.disabled = true;
+      elemBtnStart.disabled = false;
+
+      // Allow user input
+      timerRoutine.blockUserInput(false);
+      timerFall.blockUserInput(false);
+    });
+
+    elemBtnStop.disabled = elemBtnReset.disabled = elemBtnFall.disabled = true; // Default
+
+  })();
+
+</script>
+</body>
+</html>
