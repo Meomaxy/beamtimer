@@ -69,7 +69,7 @@
 
   <div class="timer container">
     <div class="timer routine">
-      <p class="timer label">Routine: </p>
+      <p class="timer label">Routine Timer: </p>
       <input class="timer minutes" type="text" value="00" pattern="\d{0,2}"/>
       <p class="timer">:</p>
       <input class="timer seconds" type="text" value="00" pattern="[0-5]{0,1}\d{0,1}"/>
@@ -78,7 +78,7 @@
       <p class="timer overtime" style="display: none;">OVERTIME!</p>
     </div>
     <div class="timer fall">
-      <p class="timer label">Fall: </p>
+      <p class="timer label">Fall Timer: </p>
       <input class="timer minutes" type="text" value="00" pattern="\d{0,2}"/>
       <p class="timer">:</p>
       <input class="timer seconds" type="text" value="00" pattern="[0-5]{0,1}\d{0,1}"/>
@@ -88,7 +88,7 @@
     </div>
     <div class="timer buttons container">
       <button class="timer startStop" type="button">Start</button>
-      <button class="timer fallResume" type="button">Fall</button>
+      <button class="timer fallResume" type="button">Fall Start</button>
       <button class="timer reset" type="button">Reset</button>
     </div>
     <audio class="ding" style="display: none;">
@@ -468,6 +468,7 @@ InltHjM5AzhRNUO2ZwBECeUYdszm/WByf//4xgF8lowPrACwD4Agiv+sagBLSX//84EAQP2C7Iie
         elemInputMin.value = time.minInitial;
         elemInputSec.value = time.secInitial;
         elemInputSecPct.value = time.secPctInitial;
+        elemBtnStartStop.innerHTML = 'Start';
         uiSyncColorOvertime();
       }
 
@@ -488,7 +489,7 @@ InltHjM5AzhRNUO2ZwBECeUYdszm/WByf//4xgF8lowPrACwD4Agiv+sagBLSX//84EAQP2C7Iie
         // Enable Reset
         elemBtnReset.disabled = false;
 
-        strBtnLabel = 'Start';
+        strBtnLabel = 'Resume';
       }
       else {
         if (timerFall.intervalRun) { // Stop fall timer
@@ -513,11 +514,11 @@ InltHjM5AzhRNUO2ZwBECeUYdszm/WByf//4xgF8lowPrACwD4Agiv+sagBLSX//84EAQP2C7Iie
         strBtnLabel = 'Stop';
       }
 
-      elemBtnFallResume.innerHTML = 'Fall';
+      elemBtnFallResume.innerHTML = 'Fall Start';
       elemBtnStartStop.innerHTML = strBtnLabel;
     });
 
-    (elemBtnFallResume = document.querySelector('button.fallResume')).addEventListener('click', () => {
+    function fallResumeEventFunction() {
       let strBtnLabel = '';
 
       if (timerFall.intervalRun) { // Stop Fall Timer
@@ -526,7 +527,7 @@ InltHjM5AzhRNUO2ZwBECeUYdszm/WByf//4xgF8lowPrACwD4Agiv+sagBLSX//84EAQP2C7Iie
         // Enable Reset
         elemBtnReset.disabled = false;
 
-        strBtnLabel = 'Fall';
+        strBtnLabel = 'Fall Start';
       }
       else {
         if (timerRoutine.intervalRun) { // Stop Routine timer
@@ -540,11 +541,18 @@ InltHjM5AzhRNUO2ZwBECeUYdszm/WByf//4xgF8lowPrACwD4Agiv+sagBLSX//84EAQP2C7Iie
 
         timerFall.run();
 
-        strBtnLabel = 'Resume';
+        strBtnLabel = 'Fall Stop';
       }
 
-      elemBtnStartStop.innerHTML = 'Start';
+      elemBtnStartStop.innerHTML = 'Resume';
       elemBtnFallResume.innerHTML = strBtnLabel;
+    }
+
+    (elemBtnFallResume = document.querySelector('button.fallResume')).addEventListener('click', fallResumeEventFunction);
+    (elemBtnFallResume = document.querySelector('button.fallResume')).addEventListener('keydown', function(e){
+      if (e.keyCode === 32) {
+        fallResumeEventFunction();
+      }
     });
 
     (elemBtnReset = document.querySelector('button.reset')).addEventListener('click', () => {
